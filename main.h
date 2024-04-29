@@ -18,6 +18,11 @@ public:
 };
 
 class main_window : public vsite::nwp::window {
+	Gdiplus::Image* img = nullptr;
+	TCHAR* text;
+public:
+		main_window() : img(nullptr), text(nullptr) {}
+		~main_window() { delete img; delete[] text; }
 protected:
 	void on_paint(HDC hdc) override;
 	void on_command(int id) override;

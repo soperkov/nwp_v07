@@ -4,15 +4,13 @@
 
 using namespace Gdiplus;
 
-void draw_string(HDC hdc, TCHAR* text, RECT rc) {
+void draw_string(HDC hdc, const TCHAR* text, RECT rc) {
 
 	Graphics g(hdc);
 	Font my_font(L"Arial", 16);
 	RectF layout_rect(static_cast<float>(rc.left), 0.0f,
 		static_cast<float>(rc.right - rc.left),
 		static_cast<float>(rc.bottom - rc.top));
-	layout_rect.Y = static_cast<float>(rc.bottom) - my_font.GetHeight(&g);
-	layout_rect.Height = my_font.GetHeight(&g);
 	SolidBrush white_brush(Color(255, 255, 255, 255));
 
 	RectF shadow_rect(layout_rect);
@@ -21,12 +19,13 @@ void draw_string(HDC hdc, TCHAR* text, RECT rc) {
 
 	StringFormat format;
 	format.SetAlignment(StringAlignmentCenter);
+	format.SetLineAlignment(StringAlignmentFar);
 	
 	g.DrawString(text, -1, &my_font, shadow_rect, &format, &black_brush);
 	g.DrawString(text, -1, &my_font, layout_rect, &format, &white_brush);
 }
 
-Image* check_scaling(HWND parent, Image* img) {
+HBITMAP check_scaling(HWND parent, Image* img) {
 	int img_width = img->GetWidth();
 	int img_height = img->GetHeight();
 	int desktop_width = GetSystemMetrics(SM_CXSCREEN);
@@ -45,21 +44,43 @@ Image* check_scaling(HWND parent, Image* img) {
 
 	img_width = static_cast<int>(img_width * scale_factor);
 	img_height = static_cast<int>(img_height * scale_factor);
-	return img->GetThumbnailImage(img_width, img_height);
+
+	Bitmap bmp(img_width, img_height, PixelFormat32bppARGB);
+	Graphics g(&bmp);
+	g.DrawImage(img, 0, 0, img_width, img_height);
+
+	HBITMAP hBitmap;
+	bmp.GetHBITMAP(Color(), &hBitmap);
+	return hBitmap;
+}
+
+int get_bitmap_width(HBITMAP hBitmap) {
+	BITMAP bmp;
+	GetObject(hBitmap, sizeof(BITMAP), &bmp);
+	return bmp.bmWidth;
+}
+
+int get_bitmap_height(HBITMAP hBitmap) {
+	BITMAP bmp;
+	GetObject(hBitmap, sizeof(BITMAP), &bmp);
+	return bmp.bmHeight;
 }
 
 
-void main_window::on_paint(HDC hdc) 
-{
+void main_window::on_paint(HDC hdc) {
 	RECT rc;
 	GetClientRect(*this, &rc);
-	Graphics g(hdc);
-	g.DrawImage(img, 0, 0, rc.right, rc.bottom);
-	draw_string(hdc, text, rc);
+	HDC memDC = CreateCompatibleDC(hdc);
+
+	if (img_bmp) {
+		SelectObject(memDC, img_bmp);
+		StretchBlt(hdc, 0, 0, rc.right, rc.bottom, memDC, 0, 0, get_bitmap_width(img_bmp), get_bitmap_height(img_bmp), SRCCOPY);
+	}
+	draw_string(hdc, text.c_str(), rc);
+	DeleteDC(memDC);
 }
 
-void main_window::on_command(int id) 
-{
+void main_window::on_command(int id) {
 	switch (id)
 	{
 		case ID_OPEN:
@@ -73,14 +94,13 @@ void main_window::on_command(int id)
 			ofn.lpstrFilter = filter;
 			ofn.Flags = OFN_HIDEREADONLY;
 			if (::GetOpenFileName(&ofn)) {
-				img = check_scaling(*this, Image::FromFile(path));
+				Image* img = Image::FromFile(path);
+				HBITMAP new_img_bmp = check_scaling(*this, img);
+				if (img_bmp) DeleteObject(img_bmp);
+				img_bmp = new_img_bmp;
 
-				std::wstring filePath = std::filesystem::path(path).filename().wstring();
-				size_t len = filePath.length() + 1;
-				TCHAR* filePathTChar = new TCHAR[len];
-				wcscpy_s(filePathTChar, len, filePath.c_str());
-				text = filePathTChar;
-				SetWindowPos(*this, nullptr, 0, 0, img->GetWidth(), img->GetHeight(), SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED);
+				text = std::filesystem::path(path).filename();
+				SetWindowPos(*this, nullptr, 0, 0, get_bitmap_width(img_bmp), get_bitmap_height(img_bmp), SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED);
 				InvalidateRect(*this, nullptr, true);
 			}
 			break;
@@ -89,6 +109,10 @@ void main_window::on_command(int id)
 			DestroyWindow(*this);
 			break;
 	}
+}
+
+bool main_window::on_erase_bkgnd(HDC hdc) {
+	return true;
 }
 
 void main_window::on_destroy() 

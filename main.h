@@ -18,12 +18,12 @@ public:
 };
 
 class main_window : public vsite::nwp::window {
-	Gdiplus::Image* img = nullptr;
-	TCHAR* text;
-	HDC hdc;
+	//Gdiplus::Image* img = nullptr;
+	HBITMAP img_bmp = nullptr;
+	tstring text;
 public:
-		main_window() : img(nullptr), text(nullptr) {}
-		~main_window() { delete img; delete[] text; }
+	main_window() : img_bmp(nullptr), text(_T("")) {}
+		~main_window() { if (img_bmp) DeleteObject(img_bmp); DeleteObject(&text); }
 protected:
 	void on_paint(HDC hdc) override;
 	void on_command(int id) override;

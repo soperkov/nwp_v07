@@ -74,6 +74,7 @@ void main_window::on_paint(HDC hdc) {
 
 	if (img_bmp) {
 		SelectObject(memDC, img_bmp);
+		SetStretchBltMode(memDC, COLORONCOLOR);
 		StretchBlt(hdc, 0, 0, rc.right, rc.bottom, memDC, 0, 0, get_bitmap_width(img_bmp), get_bitmap_height(img_bmp), SRCCOPY);
 	}
 	draw_string(hdc, text.c_str(), rc);

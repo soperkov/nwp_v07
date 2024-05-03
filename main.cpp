@@ -61,7 +61,7 @@ void main_window::on_paint(HDC hdc) {
 
 	if (img_bmp) {
 		SelectObject(memDC, img_bmp);
-		SetStretchBltMode(memDC, COLORONCOLOR);
+		SetStretchBltMode(hdc, COLORONCOLOR);
 		StretchBlt(hdc, 0, 0, rc.right, rc.bottom, memDC, 0, 0, bmp_width, bmp_height, SRCCOPY);
 	}
 	draw_string(hdc, text.c_str(), rc);
@@ -82,19 +82,15 @@ void main_window::on_command(int id) {
 			ofn.lpstrFilter = filter;
 			ofn.Flags = OFN_HIDEREADONLY;
 			if (::GetOpenFileName(&ofn)) {
-				std::unique_ptr<Bitmap> bmp(Bitmap::FromFile(path));
-				if (bmp->GetLastStatus() == Ok) {
-					HBITMAP new_img_bmp;
-					bmp->GetHBITMAP(Color(), &new_img_bmp);
-					bmp_width = bmp->GetWidth();
-					bmp_height = bmp->GetHeight();
-					if (img_bmp) DeleteObject(img_bmp);
-					img_bmp = new_img_bmp;
+				Bitmap bmp(path);
+				bmp_width = bmp.GetWidth();
+				bmp_height = bmp.GetHeight();
+				if (img_bmp) DeleteObject(img_bmp);
+				bmp.GetHBITMAP(Color(), &img_bmp);
 
-					text = std::filesystem::path(path).filename();
-					SetWindowPos(*this, nullptr, 0, 0, bmp_width, bmp_height, SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED);
-					InvalidateRect(*this, nullptr, true);
-				}
+				text = std::filesystem::path(path).filename();
+				SetWindowPos(*this, nullptr, 0, 0, bmp_width, bmp_height, SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED);
+				InvalidateRect(*this, nullptr, true);
 			}
 			break;
 		}

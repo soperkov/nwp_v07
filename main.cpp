@@ -25,47 +25,34 @@ void draw_string(HDC hdc, const TCHAR* text, RECT rc) {
 	g.DrawString(text, -1, &my_font, layout_rect, &format, &white_brush);
 }
 
-HBITMAP check_scaling(HWND parent, Image* img) {
-	int img_width = img->GetWidth();
-	int img_height = img->GetHeight();
-	int desktop_width = GetSystemMetrics(SM_CXSCREEN);
-	int desktop_height = GetSystemMetrics(SM_CYSCREEN);
-	float scale_factor = 1.0f;
-
-	if (img_width > desktop_width && img_height > desktop_height) {
-		scale_factor = min(static_cast<float>(desktop_width) / img_width, static_cast<float>(desktop_height) / img_height);
-	}
-	else if (img_width > desktop_width) {
-		scale_factor = static_cast<float>(desktop_width) / img_width;
-	}
-	else if (img_height > desktop_height) {
-		scale_factor = static_cast<float>(desktop_width) / img_height;
-	}
-
-	img_width = static_cast<int>(img_width * scale_factor);
-	img_height = static_cast<int>(img_height * scale_factor);
-
-	Bitmap bmp(img_width, img_height, PixelFormat32bppARGB);
-	Graphics g(&bmp);
-	g.DrawImage(img, 0, 0, img_width, img_height);
-
-	HBITMAP hBitmap;
-	bmp.GetHBITMAP(Color(), &hBitmap);
-	return hBitmap;
-}
-
-int get_bitmap_width(HBITMAP hBitmap) {
-	BITMAP bmp;
-	GetObject(hBitmap, sizeof(BITMAP), &bmp);
-	return bmp.bmWidth;
-}
-
-int get_bitmap_height(HBITMAP hBitmap) {
-	BITMAP bmp;
-	GetObject(hBitmap, sizeof(BITMAP), &bmp);
-	return bmp.bmHeight;
-}
-
+//HBITMAP check_scaling(HWND parent, Image* img) {
+//	int img_width = img->GetWidth();
+//	int img_height = img->GetHeight();
+//	int desktop_width = GetSystemMetrics(SM_CXSCREEN);
+//	int desktop_height = GetSystemMetrics(SM_CYSCREEN);
+//	float scale_factor = 1.0f;
+//
+//	if (img_width > desktop_width && img_height > desktop_height) {
+//		scale_factor = min(static_cast<float>(desktop_width) / img_width, static_cast<float>(desktop_height) / img_height);
+//	}
+//	else if (img_width > desktop_width) {
+//		scale_factor = static_cast<float>(desktop_width) / img_width;
+//	}
+//	else if (img_height > desktop_height) {
+//		scale_factor = static_cast<float>(desktop_width) / img_height;
+//	}
+//
+//	img_width = static_cast<int>(img_width * scale_factor);
+//	img_height = static_cast<int>(img_height * scale_factor);
+//
+//	Bitmap bmp(img_width, img_height, PixelFormat32bppARGB);
+//	Graphics g(&bmp);
+//	g.DrawImage(img, 0, 0, img_width, img_height);
+//
+//	HBITMAP hBitmap;
+//	bmp.GetHBITMAP(Color(), &hBitmap);
+//	return hBitmap;
+//}
 
 void main_window::on_paint(HDC hdc) {
 	RECT rc;
@@ -75,7 +62,7 @@ void main_window::on_paint(HDC hdc) {
 	if (img_bmp) {
 		SelectObject(memDC, img_bmp);
 		SetStretchBltMode(memDC, COLORONCOLOR);
-		StretchBlt(hdc, 0, 0, rc.right, rc.bottom, memDC, 0, 0, get_bitmap_width(img_bmp), get_bitmap_height(img_bmp), SRCCOPY);
+		StretchBlt(hdc, 0, 0, rc.right, rc.bottom, memDC, 0, 0, bmp_width, bmp_height, SRCCOPY);
 	}
 	draw_string(hdc, text.c_str(), rc);
 	DeleteDC(memDC);
@@ -95,14 +82,19 @@ void main_window::on_command(int id) {
 			ofn.lpstrFilter = filter;
 			ofn.Flags = OFN_HIDEREADONLY;
 			if (::GetOpenFileName(&ofn)) {
-				Image* img = Image::FromFile(path);
-				HBITMAP new_img_bmp = check_scaling(*this, img);
-				if (img_bmp) DeleteObject(img_bmp);
-				img_bmp = new_img_bmp;
+				std::unique_ptr<Bitmap> bmp(Bitmap::FromFile(path));
+				if (bmp->GetLastStatus() == Ok) {
+					HBITMAP new_img_bmp;
+					bmp->GetHBITMAP(Color(), &new_img_bmp);
+					bmp_width = bmp->GetWidth();
+					bmp_height = bmp->GetHeight();
+					if (img_bmp) DeleteObject(img_bmp);
+					img_bmp = new_img_bmp;
 
-				text = std::filesystem::path(path).filename();
-				SetWindowPos(*this, nullptr, 0, 0, get_bitmap_width(img_bmp), get_bitmap_height(img_bmp), SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED);
-				InvalidateRect(*this, nullptr, true);
+					text = std::filesystem::path(path).filename();
+					SetWindowPos(*this, nullptr, 0, 0, bmp_width, bmp_height, SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED);
+					InvalidateRect(*this, nullptr, true);
+				}
 			}
 			break;
 		}

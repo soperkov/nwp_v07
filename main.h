@@ -18,9 +18,10 @@ public:
 };
 
 class main_window : public vsite::nwp::window {
-	//Gdiplus::Image* img = nullptr;
 	HBITMAP img_bmp = nullptr;
 	tstring text;
+	int bmp_width;
+	int bmp_height;
 public:
 	main_window() : img_bmp(nullptr), text(_T("")) {}
 		~main_window() { if (img_bmp) DeleteObject(img_bmp); DeleteObject(&text); }
